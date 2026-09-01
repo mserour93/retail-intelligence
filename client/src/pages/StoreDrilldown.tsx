@@ -14,9 +14,29 @@ interface StoreDrilldownResponse {
   children: Array<{ categoryId: string; categoryName: string; netSales: number; salesGrowthPct: number; grossMarginPct: number }>;
 }
 
+interface StaffRow {
+  employeeId: string;
+  name: string;
+  role: string;
+  shift: string;
+  daysWorked: number;
+  hoursWorked: number;
+  salesAttributed: number;
+  transactionsAttributed: number;
+  salesPerHour: number;
+  transactionsPerHour: number;
+  atv: number;
+}
+
+interface StaffResponse {
+  staff: StaffRow[];
+  note: string;
+}
+
 export function StoreDrilldown() {
   const { storeId } = useParams();
   const { data, loading, error } = useApi<StoreDrilldownResponse>(storeId ? `/drilldown/store/${storeId}` : null, [storeId]);
+  const { data: staffData } = useApi<StaffResponse>(storeId ? `/drilldown/store/${storeId}/staff` : null, [storeId]);
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} />;
@@ -62,6 +82,43 @@ export function StoreDrilldown() {
             <OpportunityCard key={o.id} opportunity={o} />
           ))}
         </div>
+      )}
+
+      {staffData && staffData.staff.length > 0 && (
+        <>
+          <SectionHeading>Store → Staff</SectionHeading>
+          <p className="text-xs text-slate-500 mb-2 italic">{staffData.note}</p>
+          <div className="bg-surface border border-border rounded-lg overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm min-w-[560px]">
+              <thead className="bg-muted text-slate-500 text-xs uppercase">
+                <tr>
+                  <th className="text-left px-4 py-2 font-medium">Name</th>
+                  <th className="text-left px-4 py-2 font-medium">Role / Shift</th>
+                  <th className="text-right px-4 py-2 font-medium">Hours</th>
+                  <th className="text-right px-4 py-2 font-medium">Sales / Hour</th>
+                  <th className="text-right px-4 py-2 font-medium">Txns / Hour</th>
+                  <th className="text-right px-4 py-2 font-medium">ATV</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...staffData.staff]
+                  .sort((a, b) => b.salesPerHour - a.salesPerHour)
+                  .map((s) => (
+                    <tr key={s.employeeId} className="border-t border-border hover:bg-muted/40">
+                      <td className="px-4 py-2 font-medium text-foreground">{s.name}</td>
+                      <td className="px-4 py-2 text-slate-500">
+                        {s.role} · {s.shift}
+                      </td>
+                      <td className="px-4 py-2 text-right font-mono">{s.hoursWorked}</td>
+                      <td className="px-4 py-2 text-right font-mono">SAR {s.salesPerHour.toFixed(0)}</td>
+                      <td className="px-4 py-2 text-right font-mono">{s.transactionsPerHour.toFixed(1)}</td>
+                      <td className="px-4 py-2 text-right font-mono">SAR {s.atv.toFixed(0)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       <SectionHeading>Categories — drill down</SectionHeading>

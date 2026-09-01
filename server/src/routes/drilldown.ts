@@ -5,6 +5,7 @@ import { enforceScope, defaultDateFrom, defaultDateTo } from "../rbac/scope.js";
 import { computeInventoryKpis, computeKpis, computeTopSellerAvailability } from "../semantic/kpiEngine.js";
 import { findRedFlags } from "../engines/redFlagEngine.js";
 import { findOpportunities } from "../engines/opportunityEngine.js";
+import { staffSummary } from "../engines/staffAnalytics.js";
 import { categories, getAreaById, getCategoryById, getProductById, getStoreById, productsInCategory, storesInArea } from "../data/masters.js";
 
 export const drilldownRouter = Router();
@@ -66,6 +67,24 @@ drilldownRouter.get("/store/:storeId", (req, res) => {
     redFlags: findRedFlags(scope),
     opportunities: findOpportunities(scope),
     children: categorySummaries,
+  });
+});
+
+drilldownRouter.get("/store/:storeId/staff", (req, res) => {
+  const user = req.user!;
+  const { storeId } = req.params;
+  const store = getStoreById(storeId);
+  if (!store) return res.status(404).json({ error: "Store not found" });
+  if (!canAccessStore(user, storeId)) return res.status(403).json({ error: "Not permitted to view this store" });
+
+  const { dateFrom, dateTo } = periodFromQuery(req);
+  const staff = staffSummary(storeId, dateFrom, dateTo);
+
+  res.json({
+    store,
+    period: { from: dateFrom, to: dateTo },
+    staff,
+    note: "Compare staff by sales/hour, not total sales — totals reflect hours worked and shift, not just performance. Store Managers carry admin/ops duties alongside frontline selling.",
   });
 });
 

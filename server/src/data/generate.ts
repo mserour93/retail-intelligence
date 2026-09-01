@@ -1,4 +1,4 @@
-import { areas, categories, products, stores } from "./masters.js";
+import { areas, categories, employeesInStore, products, stores } from "./masters.js";
 
 /**
  * Synthetic data generator. This stands in for the operational + analytical
@@ -250,6 +250,42 @@ for (const daysAgo of snapshotDays) {
         availabilityRate: Math.round(availability * 1000) / 1000,
         stockUnits: Math.round(availability * (40 + rand() * 60)),
       });
+    }
+  }
+}
+
+export interface EmployeeDailyFact {
+  date: string;
+  employeeId: string;
+  storeId: string;
+  hoursWorked: number;
+  salesAttributed: number;
+  transactionsAttributed: number;
+}
+
+const STAFF_DAYS_OF_HISTORY = 14;
+// Store Manager time is split across admin/ops duties, not all frontline selling.
+const ROLE_SALES_WEIGHT: Record<string, number> = { "Store Manager": 0.5, Pharmacist: 1.1, Cashier: 1.0 };
+
+export const employeeDailyFacts: EmployeeDailyFact[] = [];
+for (let dayIndex = DAYS_OF_HISTORY - STAFF_DAYS_OF_HISTORY; dayIndex < DAYS_OF_HISTORY; dayIndex++) {
+  const date = CALENDAR[dayIndex];
+  for (const store of stores) {
+    const storeDayFacts = dailyFacts.filter((f) => f.date === date && f.storeId === store.id);
+    const storeSales = storeDayFacts.reduce((a, f) => a + f.netSales, 0);
+    const storeTransactions = storeDayFacts.reduce((a, f) => a + f.transactions, 0);
+    const staff = employeesInStore(store.id);
+
+    const onShiftToday = staff.filter(() => rand() > 0.12); // ~88% attendance
+    const totalWeight = onShiftToday.reduce((a, e) => a + (ROLE_SALES_WEIGHT[e.role] ?? 1), 0) || 1;
+
+    for (const emp of staff) {
+      const working = onShiftToday.includes(emp);
+      const hoursWorked = working ? Math.round((6 + rand() * 3) * 10) / 10 : 0;
+      const weight = (ROLE_SALES_WEIGHT[emp.role] ?? 1) / totalWeight;
+      const salesAttributed = working ? Math.round(storeSales * weight * 100) / 100 : 0;
+      const transactionsAttributed = working ? Math.round(storeTransactions * weight) : 0;
+      employeeDailyFacts.push({ date, employeeId: emp.id, storeId: store.id, hoursWorked, salesAttributed, transactionsAttributed });
     }
   }
 }

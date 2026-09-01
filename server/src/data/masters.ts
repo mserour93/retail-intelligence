@@ -52,6 +52,18 @@ export interface Supplier {
   categoryIds: string[];
 }
 
+export type EmployeeRole = "Pharmacist" | "Cashier" | "Store Manager";
+export type Shift = "Morning" | "Evening";
+
+export interface Employee {
+  id: string;
+  name: string;
+  storeId: string;
+  role: EmployeeRole;
+  shift: Shift;
+  hireDate: string;
+}
+
 export const regions: Region[] = [
   { id: "reg-central", name: "Central Region" },
   { id: "reg-west", name: "Western Region" },
@@ -146,6 +158,31 @@ export const suppliers: Supplier[] = [
   { id: "sup-loreal", name: "L'Oreal KSA", categoryIds: ["cat-beauty"] },
   { id: "sup-omron", name: "Omron Gulf", categoryIds: ["cat-devices"] },
 ];
+
+const FIRST_NAMES = ["Sara", "Omar", "Layla", "Yousef", "Huda", "Nasser", "Amal", "Faisal", "Rania", "Bandar", "Noor", "Talal"];
+const ROLE_MIX: EmployeeRole[] = ["Store Manager", "Pharmacist", "Pharmacist", "Cashier", "Cashier", "Cashier"];
+
+export const employees: Employee[] = stores.flatMap((store, storeIdx) => {
+  const headcount = store.cluster === "Flagship" ? 6 : store.cluster === "Standard" ? 4 : 3;
+  return Array.from({ length: headcount }, (_, i) => {
+    const globalIdx = storeIdx * 6 + i;
+    return {
+      id: `emp-${store.code}-${i + 1}`,
+      name: `${FIRST_NAMES[globalIdx % FIRST_NAMES.length]} ${store.code}-${i + 1}`,
+      storeId: store.id,
+      role: i === 0 ? "Store Manager" : ROLE_MIX[(globalIdx + 1) % ROLE_MIX.length],
+      shift: i % 2 === 0 ? "Morning" : "Evening",
+      hireDate: "2024-01-15",
+    };
+  });
+});
+
+export function employeesInStore(storeId: string) {
+  return employees.filter((e) => e.storeId === storeId);
+}
+export function getEmployeeById(id: string) {
+  return employees.find((e) => e.id === id);
+}
 
 export function getAreaById(id: string) {
   return areas.find((a) => a.id === id);

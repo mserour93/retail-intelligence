@@ -3,6 +3,7 @@ import { authMiddleware } from "../rbac/authMiddleware.js";
 import { allowedStoreIds } from "../rbac/users.js";
 import { createReport, getReport, listReports, removeReport, updateReport } from "../reports/store.js";
 import { executeReport } from "../reports/execute.js";
+import { exportReportToExcel, exportReportToPdf } from "../reports/export.js";
 import { listKpiDefinitions } from "../semantic/kpiDictionary.js";
 import type { ReportDefinitionInput } from "../reports/types.js";
 
@@ -52,6 +53,27 @@ reportsRouter.post("/:id/execute", (req, res) => {
   res.json(result);
 });
 
+// Export a saved report definition as PDF or Excel, stamped per spec §49. format=pdf|excel.
+reportsRouter.get("/:id/export", async (req, res) => {
+  const def = getReport(req.params.id);
+  if (!def) return res.status(404).json({ error: "Report not found" });
+  const format = req.query.format === "pdf" ? "pdf" : "excel";
+  const allowed = new Set(allowedStoreIds(req.user!));
+  const result = executeReport(def, allowed);
+
+  if (format === "pdf") {
+    const buffer = await exportReportToPdf(result, req.user!);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", 'attachment; filename="report.pdf"');
+    res.send(buffer);
+  } else {
+    const buffer = await exportReportToExcel(result, req.user!);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", 'attachment; filename="report.xlsx"');
+    res.send(buffer);
+  }
+});
+
 // Preview: execute an ad-hoc definition without saving (used by the report builder UI live preview).
 reportsRouter.post("/preview", (req, res) => {
   const input = req.body as ReportDefinitionInput;
@@ -61,4 +83,27 @@ reportsRouter.post("/preview", (req, res) => {
   const allowed = new Set(allowedStoreIds(req.user!));
   const result = executeReport(def, allowed);
   res.json(result);
+});
+
+// Export an ad-hoc (unsaved) report definition as PDF or Excel. Body = ReportDefinitionInput, ?format=pdf|excel.
+reportsRouter.post("/preview/export", async (req, res) => {
+  const input = req.body as ReportDefinitionInput;
+  if (!input?.metrics?.length) return res.status(400).json({ error: "At least one metric is required" });
+  const format = req.query.format === "pdf" ? "pdf" : "excel";
+  const now = new Date().toISOString();
+  const def = { ...input, id: "adhoc", owner: req.user!.id, version: 0, createdDate: now, updatedDate: now };
+  const allowed = new Set(allowedStoreIds(req.user!));
+  const result = executeReport(def, allowed);
+
+  if (format === "pdf") {
+    const buffer = await exportReportToPdf(result, req.user!);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", 'attachment; filename="report.pdf"');
+    res.send(buffer);
+  } else {
+    const buffer = await exportReportToExcel(result, req.user!);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", 'attachment; filename="report.xlsx"');
+    res.send(buffer);
+  }
 });

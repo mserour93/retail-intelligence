@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import { api, downloadFile } from "../api/client";
 import { LoadingState, ErrorState, ConfidenceBadge, SectionHeading } from "../components/shared";
 import type { KpiDefinition, ReportDefinitionInput, ReportResult } from "../api/types";
 
@@ -32,28 +32,43 @@ export function ReportBuilder() {
     api.get<{ kpis: KpiDefinition[] }>("/reports/kpi-dictionary").then(({ kpis }) => setKpis(kpis));
   }, []);
 
+  function buildInput(): ReportDefinitionInput {
+    return {
+      name: "Ad-hoc report",
+      description: "",
+      dataSource: "retail-facts",
+      metrics,
+      dimensions: [dimension],
+      filters: [],
+      dateFrom: isoDaysAgo(rangeDays),
+      dateTo: isoDaysAgo(0),
+      comparison,
+      visualization,
+    };
+  }
+
   async function runReport() {
     setLoading(true);
     setError(null);
     try {
-      const input: ReportDefinitionInput = {
-        name: "Ad-hoc report",
-        description: "",
-        dataSource: "retail-facts",
-        metrics,
-        dimensions: [dimension],
-        filters: [],
-        dateFrom: isoDaysAgo(rangeDays),
-        dateTo: isoDaysAgo(0),
-        comparison,
-        visualization,
-      };
-      const res = await api.post<ReportResult>("/reports/preview", input);
+      const res = await api.post<ReportResult>("/reports/preview", buildInput());
       setResult(res);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to run report");
     } finally {
       setLoading(false);
+    }
+  }
+
+  const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
+  async function exportAs(format: "pdf" | "excel") {
+    setExporting(format);
+    try {
+      await downloadFile(`/reports/preview/export?format=${format}`, buildInput(), format === "pdf" ? "report.pdf" : "report.xlsx");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Export failed");
+    } finally {
+      setExporting(null);
     }
   }
 
@@ -71,7 +86,7 @@ export function ReportBuilder() {
       <h1 className="text-xl font-semibold text-foreground">Report Builder</h1>
       <p className="text-sm text-slate-500 mb-4">
         Pick metrics and a dimension — no SQL, no pivot tables. The same Report Definition can render as a table or KPI
-        cards (spec §8-10); saving/scheduling/export are noted as Phase 2 in docs/ROADMAP.md.
+        cards, and export to PDF or Excel, stamped with who generated it and when.
       </p>
 
       <div className="bg-surface border border-border rounded-lg p-4 space-y-4">
@@ -131,7 +146,31 @@ export function ReportBuilder() {
         </div>
       </div>
 
-      <SectionHeading action={result && <ConfidenceBadge confidence={result.confidence} reason={result.confidenceReason} />}>Result</SectionHeading>
+      <SectionHeading
+        action={
+          result && (
+            <div className="flex items-center gap-2">
+              <ConfidenceBadge confidence={result.confidence} reason={result.confidenceReason} />
+              <button
+                onClick={() => exportAs("excel")}
+                disabled={exporting !== null}
+                className="text-xs font-medium px-2.5 py-1.5 rounded-md border border-border text-slate-600 hover:bg-muted cursor-pointer disabled:opacity-50 min-h-[32px]"
+              >
+                {exporting === "excel" ? "Exporting…" : "Export Excel"}
+              </button>
+              <button
+                onClick={() => exportAs("pdf")}
+                disabled={exporting !== null}
+                className="text-xs font-medium px-2.5 py-1.5 rounded-md border border-border text-slate-600 hover:bg-muted cursor-pointer disabled:opacity-50 min-h-[32px]"
+              >
+                {exporting === "pdf" ? "Exporting…" : "Export PDF"}
+              </button>
+            </div>
+          )
+        }
+      >
+        Result
+      </SectionHeading>
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {result && !loading && <ReportOutput result={result} kpis={kpis} />}
