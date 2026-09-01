@@ -34,7 +34,7 @@ drilldownRouter.get("/area/:areaId", (req, res) => {
 
   res.json({
     area,
-    period: scope,
+    period: { from: scope.dateFrom, to: scope.dateTo },
     kpis: { ...kpis.current, salesGrowthPct: kpis.salesGrowthPct, marginChangePp: kpis.marginChangePp, transactionGrowthPct: kpis.transactionGrowthPct },
     inventory: inv,
     redFlags: findRedFlags(scope),
@@ -60,7 +60,7 @@ drilldownRouter.get("/store/:storeId", (req, res) => {
 
   res.json({
     store,
-    period: scope,
+    period: { from: scope.dateFrom, to: scope.dateTo },
     kpis: { ...kpis.current, salesGrowthPct: kpis.salesGrowthPct, marginChangePp: kpis.marginChangePp, transactionGrowthPct: kpis.transactionGrowthPct },
     inventory: inv,
     redFlags: findRedFlags(scope),
@@ -87,7 +87,7 @@ drilldownRouter.get("/category/:categoryId", (req, res) => {
 
   res.json({
     category,
-    period: scope,
+    period: { from: scope.dateFrom, to: scope.dateTo },
     kpis: { ...kpis.current, salesGrowthPct: kpis.salesGrowthPct, marginChangePp: kpis.marginChangePp },
     inventory: inv,
     redFlags: findRedFlags(scope),
@@ -110,7 +110,7 @@ drilldownRouter.get("/product/:productId", (req, res) => {
   res.json({
     product,
     category: getCategoryById(product.categoryId),
-    period: scope,
+    period: { from: scope.dateFrom, to: scope.dateTo },
     availabilityPct: avgAvail,
     priorAvailabilityPct: priorAvail,
     isTopSeller: product.isTopSeller,
