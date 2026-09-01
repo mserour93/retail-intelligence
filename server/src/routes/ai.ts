@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authMiddleware } from "../rbac/authMiddleware.js";
 import { askAi } from "../engines/aiOrchestrator.js";
+import { recordAudit } from "../audit/log.js";
 
 export const aiRouter = Router();
 aiRouter.use(authMiddleware);
@@ -10,7 +11,16 @@ aiRouter.post("/ask", (req, res) => {
   if (!question || !question.trim()) {
     return res.status(400).json({ error: "question is required" });
   }
-  const answer = askAi(question, req.user!);
+  const user = req.user!;
+  const answer = askAi(question, user);
+  recordAudit({
+    userId: user.id,
+    userName: user.name,
+    role: user.role,
+    eventType: "ai_question",
+    detail: `Asked: "${question}"`,
+    dataScope: answer.dataContext.filters,
+  });
   res.json({ answer });
 });
 

@@ -12,6 +12,7 @@ import { RedFlags } from "./pages/RedFlags";
 import { Actions } from "./pages/Actions";
 import { ReportBuilder } from "./pages/ReportBuilder";
 import { DataControlCenter } from "./pages/DataControlCenter";
+import { AuditTrail } from "./pages/AuditTrail";
 import { More } from "./pages/More";
 import { LoadingState } from "./components/shared";
 import type { ReactNode } from "react";
@@ -44,6 +45,7 @@ function AppRoutes() {
         <Route path="/actions" element={<Actions />} />
         <Route path="/reports" element={<ReportBuilder />} />
         <Route path="/data-control-center" element={<DataControlCenter />} />
+        <Route path="/audit" element={<AuditTrail />} />
         <Route path="/more" element={<More />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

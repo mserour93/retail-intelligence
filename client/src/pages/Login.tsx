@@ -7,8 +7,8 @@ export function Login() {
   const { personas, login, loading } = useAuth();
   const navigate = useNavigate();
 
-  function handleSelect(id: string) {
-    login(id);
+  async function handleSelect(id: string) {
+    await login(id);
     navigate("/");
   }
 

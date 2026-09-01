@@ -6,7 +6,7 @@ interface AuthContextValue {
   personas: Persona[];
   currentUser: Persona | null;
   loading: boolean;
-  login: (userId: string) => void;
+  login: (userId: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -30,7 +30,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(
-    (userId: string) => {
+    async (userId: string) => {
+      await api.post("/auth/login", { userId }); // records the sign-in in the audit trail
       setCurrentUserId(userId);
       const persona = personas.find((p) => p.id === userId) ?? null;
       setCurrentUser(persona);

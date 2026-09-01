@@ -70,6 +70,12 @@ export function ControlTower() {
         <KpiCard label="Units / Transaction" value={data.kpis.unitsPerTransaction.toFixed(2)} />
         <KpiCard label="Inventory Value" value={`SAR ${Math.round(data.kpis.inventoryValue).toLocaleString()}`} />
         <KpiCard label="Availability" value={`${(data.kpis.availabilityPct * 100).toFixed(1)}%`} positiveIsGood />
+        {data.ecommerce && (
+          <>
+            <KpiCard label="Ecommerce Sales" value={`SAR ${Math.round(data.ecommerce.netSales).toLocaleString()}`} />
+            <KpiCard label="Ecommerce Orders" value={data.ecommerce.orders.toLocaleString()} />
+          </>
+        )}
       </div>
 
       {data.whatToLookAtFirst.length > 0 && (

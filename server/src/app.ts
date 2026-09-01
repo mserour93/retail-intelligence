@@ -9,6 +9,8 @@ import { aiRouter } from "./routes/ai.js";
 import { actionsRouter } from "./routes/actions.js";
 import { ingestionRouter } from "./routes/ingestion.js";
 import { dataControlRouter } from "./routes/dataControl.js";
+import { auditRouter } from "./routes/audit.js";
+import { briefRouter } from "./routes/brief.js";
 
 export function createApp() {
   const app = express();
@@ -25,6 +27,8 @@ export function createApp() {
   app.use("/api/v1/ai", aiRouter);
   app.use("/api/v1/actions", actionsRouter);
   app.use("/api/v1/data-control-center", dataControlRouter);
+  app.use("/api/v1/audit", auditRouter);
+  app.use("/api/v1/brief", briefRouter);
   app.use("/api/v1", ingestionRouter);
 
   app.use((_req, res) => res.status(404).json({ error: "Not found" }));

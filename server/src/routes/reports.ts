@@ -5,7 +5,20 @@ import { createReport, getReport, listReports, removeReport, updateReport } from
 import { executeReport } from "../reports/execute.js";
 import { exportReportToExcel, exportReportToPdf } from "../reports/export.js";
 import { listKpiDefinitions } from "../semantic/kpiDictionary.js";
+import { recordAudit } from "../audit/log.js";
+import type { AppUser } from "../rbac/users.js";
 import type { ReportDefinitionInput } from "../reports/types.js";
+
+function auditExport(user: AppUser, reportName: string, format: string) {
+  recordAudit({
+    userId: user.id,
+    userName: user.name,
+    role: user.role,
+    eventType: "report_export",
+    detail: `Exported "${reportName || "Ad-hoc report"}" as ${format}`,
+    dataScope: null,
+  });
+}
 
 export const reportsRouter = Router();
 reportsRouter.use(authMiddleware);
@@ -61,6 +74,7 @@ reportsRouter.get("/:id/export", async (req, res) => {
   const allowed = new Set(allowedStoreIds(req.user!));
   const result = executeReport(def, allowed);
 
+  auditExport(req.user!, def.name, format);
   if (format === "pdf") {
     const buffer = await exportReportToPdf(result, req.user!);
     res.setHeader("Content-Type", "application/pdf");
@@ -95,6 +109,7 @@ reportsRouter.post("/preview/export", async (req, res) => {
   const allowed = new Set(allowedStoreIds(req.user!));
   const result = executeReport(def, allowed);
 
+  auditExport(req.user!, def.name, format);
   if (format === "pdf") {
     const buffer = await exportReportToPdf(result, req.user!);
     res.setHeader("Content-Type", "application/pdf");

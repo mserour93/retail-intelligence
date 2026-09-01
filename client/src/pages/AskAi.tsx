@@ -35,6 +35,35 @@ export function AskAi() {
     }
   }
 
+  async function askForBrief() {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const brief = await api.get<{ period: { from: string; to: string }; headline: string; bullets: string[] }>("/brief?bullets=5");
+      const answer: AiAnswer = {
+        executiveAnswer: brief.bullets[0] ?? "",
+        keyNumbers: [],
+        whatHappened: "",
+        why: "",
+        redFlags: [],
+        opportunities: [],
+        suggestedConsiderations: [],
+        takeaways: brief.bullets,
+        dataContext: {
+          period: brief.period,
+          filters: "Your assigned scope",
+          dataAsOf: new Date().toISOString(),
+          dataSource: "Daily Retail Brief (GET /api/v1/brief)",
+          confidence: "high",
+          confidenceReason: "Certified KPI definitions.",
+        },
+      };
+      setTurns((t) => [...t, { question: "Give me 5 bullets.", answer }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="flex flex-col h-[calc(100vh-140px)] md:h-[calc(100vh-100px)]">
       <div>
@@ -47,6 +76,12 @@ export function AskAi() {
 
       {turns.length === 0 && (
         <div className="flex flex-wrap gap-2 mb-3">
+          <button
+            onClick={askForBrief}
+            className="text-xs bg-accent/10 hover:bg-accent/20 text-accent font-medium px-3 py-2 rounded-full cursor-pointer min-h-[36px]"
+          >
+            Give me 5 bullets (Daily Brief)
+          </button>
           {prompts.map((p) => (
             <button
               key={p}

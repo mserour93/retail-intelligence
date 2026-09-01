@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authMiddleware } from "../rbac/authMiddleware.js";
 import { createAction, listActions, updateActionStatus, type DecisionType } from "../actions/store.js";
+import { recordAudit } from "../audit/log.js";
 
 export const actionsRouter = Router();
 actionsRouter.use(authMiddleware);
@@ -40,6 +41,14 @@ actionsRouter.post("/", (req, res) => {
     ownerUserId: req.user!.id,
     assignedToUserId,
     followUpDate,
+  });
+  recordAudit({
+    userId: req.user!.id,
+    userName: req.user!.name,
+    role: req.user!.role,
+    eventType: "action_recorded",
+    detail: `Recorded "${decision}" on ${refType} ${refId}`,
+    dataScope: null,
   });
   res.status(201).json({ action });
 });

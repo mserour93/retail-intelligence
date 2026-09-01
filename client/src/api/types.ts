@@ -98,6 +98,7 @@ export interface ControlTowerResponse {
   takeaways: string[];
   whatToLookAtFirst: Array<{ flagId: string; entityLabel: string; reason: string; estimatedImpactSar: number | null }>;
   storeRanking?: StoreRankingRow[];
+  ecommerce: { netSales: number; orders: number } | null;
 }
 
 export interface AiAnswer {

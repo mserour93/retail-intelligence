@@ -6,6 +6,8 @@ import { computeInventoryKpis, computeKpis, type QueryScope } from "../semantic/
 import { findRedFlags } from "../engines/redFlagEngine.js";
 import { findOpportunities } from "../engines/opportunityEngine.js";
 import { computeHealthScore } from "../engines/healthScore.js";
+import { recordAudit } from "../audit/log.js";
+import { ecommerceDaily } from "../data/generate.js";
 import { getAreaById, getStoreById, stores } from "../data/masters.js";
 
 export const controlTowerRouter = Router();
@@ -22,6 +24,15 @@ controlTowerRouter.get("/", (req, res) => {
   const health = computeHealthScore(scope);
   const redFlags = findRedFlags(scope);
   const opportunities = findOpportunities(scope);
+
+  recordAudit({
+    userId: user.id,
+    userName: user.name,
+    role: user.role,
+    eventType: "control_tower_view",
+    detail: `Viewed control tower for ${dateFrom} to ${dateTo}`,
+    dataScope: (scope.storeIds ?? []).join(","),
+  });
 
   const areaIds = allowedAreaIds(user);
   const scopeLabel =
@@ -43,6 +54,18 @@ controlTowerRouter.get("/", (req, res) => {
       ? rankStores(scope, allowedStoreIds(user))
       : undefined;
 
+  // Ecommerce is modeled company-wide only in this mock dataset (no per-store
+  // attribution), so it's only shown at company-wide scope (CEO/Retail
+  // Director) rather than fabricated per area/store — see docs/ROADMAP.md.
+  const isCompanyWideScope = user.role === "CEO" || user.role === "RETAIL_DIRECTOR";
+  const ecomWindow = ecommerceDaily.filter((e) => e.date >= scope.dateFrom && e.date <= scope.dateTo);
+  const ecommerce = isCompanyWideScope
+    ? {
+        netSales: round2(ecomWindow.reduce((a, e) => a + e.netSales, 0)),
+        orders: ecomWindow.reduce((a, e) => a + e.orders, 0),
+      }
+    : null;
+
   res.json({
     user: { id: user.id, name: user.name, role: user.role },
     greeting: `Good morning, ${user.name.split(" ")[0]} — ${scopeLabel}`,
@@ -63,6 +86,7 @@ controlTowerRouter.get("/", (req, res) => {
       oosRate: inv.OOS_RATE,
       availabilityPct: inv.AVAILABILITY_PCT,
     },
+    ecommerce,
     redFlags,
     opportunities,
     takeaways,
@@ -70,6 +94,10 @@ controlTowerRouter.get("/", (req, res) => {
     storeRanking,
   });
 });
+
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
+}
 
 function buildTakeaways(
   kpis: ReturnType<typeof computeKpis>,

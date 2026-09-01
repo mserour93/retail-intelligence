@@ -13,6 +13,7 @@ const NAV_ITEMS = [
 const MORE_ITEMS = [
   { to: "/commercial", label: "Commercial Command Center", icon: BuildingIcon },
   { to: "/data-control-center", label: "Data Control Center", icon: DataIcon },
+  { to: "/audit", label: "My Activity", icon: DataIcon },
 ];
 
 export function Layout() {
