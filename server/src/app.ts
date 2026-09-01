@@ -12,6 +12,7 @@ import { dataControlRouter } from "./routes/dataControl.js";
 import { auditRouter } from "./routes/audit.js";
 import { briefRouter } from "./routes/brief.js";
 import { sharedRouter } from "./routes/shared.js";
+import { forecastRouter } from "./routes/forecast.js";
 
 export function createApp() {
   const app = express();
@@ -31,6 +32,7 @@ export function createApp() {
   app.use("/api/v1/audit", auditRouter);
   app.use("/api/v1/brief", briefRouter);
   app.use("/api/v1/shared", sharedRouter); // public, no auth — secure share links
+  app.use("/api/v1/forecast", forecastRouter);
   app.use("/api/v1", ingestionRouter);
 
   app.use((_req, res) => res.status(404).json({ error: "Not found" }));

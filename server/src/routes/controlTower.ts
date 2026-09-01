@@ -7,7 +7,7 @@ import { findRedFlags } from "../engines/redFlagEngine.js";
 import { findOpportunities } from "../engines/opportunityEngine.js";
 import { computeHealthScore } from "../engines/healthScore.js";
 import { recordAudit } from "../audit/log.js";
-import { ecommerceDaily } from "../data/generate.js";
+import { ecommerceDaily, customerDaily } from "../data/generate.js";
 import { getAreaById, getStoreById, stores } from "../data/masters.js";
 
 export const controlTowerRouter = Router();
@@ -66,6 +66,18 @@ controlTowerRouter.get("/", (req, res) => {
       }
     : null;
 
+  // Same company-wide-only caveat as ecommerce: derived from total
+  // transaction volume, no per-store customer identity in this mock data.
+  const custWindow = customerDaily.filter((c) => c.date >= scope.dateFrom && c.date <= scope.dateTo);
+  const customer = isCompanyWideScope && custWindow.length
+    ? {
+        activeCustomers: Math.round(custWindow.reduce((a, c) => a + c.activeCustomers, 0) / custWindow.length),
+        newCustomers: custWindow.reduce((a, c) => a + c.newCustomers, 0),
+        returningCustomers: custWindow.reduce((a, c) => a + c.returningCustomers, 0),
+        loyaltyPenetrationPct: custWindow[0].loyaltyPenetrationPct,
+      }
+    : null;
+
   res.json({
     user: { id: user.id, name: user.name, role: user.role },
     greeting: `Good morning, ${user.name.split(" ")[0]} — ${scopeLabel}`,
@@ -87,6 +99,7 @@ controlTowerRouter.get("/", (req, res) => {
       availabilityPct: inv.AVAILABILITY_PCT,
     },
     ecommerce,
+    customer,
     redFlags,
     opportunities,
     takeaways,

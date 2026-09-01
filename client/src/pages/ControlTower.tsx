@@ -3,8 +3,15 @@ import { Link } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { KpiCard, RedFlagCard, OpportunityCard, SectionHeading, EmptyState, LoadingState, ErrorState } from "../components/shared";
 import { DecisionModal } from "../components/DecisionModal";
+import { ForecastChart } from "../components/ForecastChart";
 import type { ControlTowerResponse, RedFlag } from "../api/types";
 import { useAuth } from "../context/AuthContext";
+
+interface ForecastResponse {
+  history: Array<{ date: string; netSales: number; isForecast: boolean }>;
+  forecast: Array<{ date: string; netSales: number; isForecast: boolean; lowerBound?: number; upperBound?: number }>;
+  note: string;
+}
 
 const RANGE_OPTIONS = [
   { label: "7 days", days: 7 },
@@ -27,6 +34,7 @@ export function ControlTower() {
   const from = isoDaysAgo(rangeDays);
   const path = `/control-tower?from=${from}`;
   const { data, loading, error } = useApi<ControlTowerResponse>(path, [rangeDays, refreshKey]);
+  const { data: forecastData } = useApi<ForecastResponse>("/forecast");
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} />;
@@ -74,6 +82,13 @@ export function ControlTower() {
           <>
             <KpiCard label="Ecommerce Sales" value={`SAR ${Math.round(data.ecommerce.netSales).toLocaleString()}`} />
             <KpiCard label="Ecommerce Orders" value={data.ecommerce.orders.toLocaleString()} />
+          </>
+        )}
+        {data.customer && (
+          <>
+            <KpiCard label="Active Customers (avg/day)" value={data.customer.activeCustomers.toLocaleString()} />
+            <KpiCard label="New Customers" value={data.customer.newCustomers.toLocaleString()} />
+            <KpiCard label="Loyalty Penetration" value={`${(data.customer.loyaltyPenetrationPct * 100).toFixed(0)}%`} />
           </>
         )}
       </div>
@@ -159,6 +174,24 @@ export function ControlTower() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </>
+      )}
+
+      {forecastData && (
+        <>
+          <SectionHeading>7-Day Sales Forecast</SectionHeading>
+          <div className="bg-surface border border-border rounded-lg p-4">
+            <ForecastChart history={forecastData.history} forecast={forecastData.forecast} />
+            <div className="flex items-center gap-4 mt-2 text-[11px] text-slate-500">
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-0.5 bg-primary inline-block" /> Actual
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-0.5 bg-accent inline-block" style={{ borderTop: "2px dashed #D97706" }} /> Forecast
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-2 italic">{forecastData.note}</p>
           </div>
         </>
       )}

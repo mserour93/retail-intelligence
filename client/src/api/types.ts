@@ -99,6 +99,7 @@ export interface ControlTowerResponse {
   whatToLookAtFirst: Array<{ flagId: string; entityLabel: string; reason: string; estimatedImpactSar: number | null }>;
   storeRanking?: StoreRankingRow[];
   ecommerce: { netSales: number; orders: number } | null;
+  customer: { activeCustomers: number; newCustomers: number; returningCustomers: number; loyaltyPenetrationPct: number } | null;
 }
 
 export interface AiAnswer {

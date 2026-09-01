@@ -67,6 +67,14 @@ export interface EcommerceDailyFact {
   conversionRate: number;
 }
 
+export interface CustomerDailyFact {
+  date: string;
+  activeCustomers: number;
+  newCustomers: number;
+  returningCustomers: number;
+  loyaltyPenetrationPct: number;
+}
+
 function isoDate(daysAgo: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() - daysAgo);
@@ -150,6 +158,15 @@ export const dailyFacts: DailyStoreCategoryFact[] = [];
 export const inventorySnapshots: InventorySnapshot[] = [];
 export const productAvailability: ProductAvailabilityPoint[] = [];
 export const ecommerceDaily: EcommerceDailyFact[] = [];
+export const customerDaily: CustomerDailyFact[] = [];
+
+// Customer metrics are derived from transaction volume, not a separate
+// customer-identity dataset — this mock has no CRM/loyalty system feeding
+// per-customer transactions, so these are company-wide estimates grounded
+// in the same transaction counts as the rest of the model, not free-floating
+// random numbers. A real deployment replaces this with actual loyalty data.
+const LOYALTY_PENETRATION_PCT = 0.62;
+const NEW_CUSTOMER_SHARE = 0.18;
 
 for (let dayIndex = 0; dayIndex < DAYS_OF_HISTORY; dayIndex++) {
   const date = CALENDAR[dayIndex];
@@ -158,6 +175,7 @@ for (let dayIndex = 0; dayIndex < DAYS_OF_HISTORY; dayIndex++) {
 
   let ecomSales = 0;
   let ecomOrders = 0;
+  let dayTransactions = 0;
 
   for (const store of stores) {
     const base = CLUSTER_BASE[store.cluster];
@@ -197,8 +215,20 @@ for (let dayIndex = 0; dayIndex < DAYS_OF_HISTORY; dayIndex++) {
 
       ecomSales += netSales * 0.06; // ecommerce modeled as a small % of retail demand
       ecomOrders += Math.round(transactions * 0.05);
+      dayTransactions += transactions;
     }
   }
+
+  const loyaltyTransactions = Math.round(dayTransactions * LOYALTY_PENETRATION_PCT);
+  const activeCustomers = Math.round(loyaltyTransactions * 0.97); // small share of members transact twice in a day
+  const newCustomers = Math.round(activeCustomers * NEW_CUSTOMER_SHARE);
+  customerDaily.push({
+    date,
+    activeCustomers,
+    newCustomers,
+    returningCustomers: activeCustomers - newCustomers,
+    loyaltyPenetrationPct: LOYALTY_PENETRATION_PCT,
+  });
 
   ecommerceDaily.push({
     date,

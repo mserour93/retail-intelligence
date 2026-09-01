@@ -224,11 +224,29 @@ export function ReportBuilder() {
             </button>
           </div>
           {shareUrl && (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <input readOnly value={shareUrl} onFocus={(e) => e.target.select()} className="text-xs font-mono border border-border rounded-md px-2.5 py-1.5 flex-1 min-w-[200px] bg-muted/40" />
-              <button onClick={copyShareUrl} className="text-xs font-medium px-2.5 py-1.5 rounded-md border border-border text-slate-600 hover:bg-muted cursor-pointer min-h-[32px]">
-                {copied ? "Copied" : "Copy"}
-              </button>
+            <div className="mt-2 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <input readOnly value={shareUrl} onFocus={(e) => e.target.select()} className="text-xs font-mono border border-border rounded-md px-2.5 py-1.5 flex-1 min-w-[200px] bg-muted/40" />
+                <button onClick={copyShareUrl} className="text-xs font-medium px-2.5 py-1.5 rounded-md border border-border text-slate-600 hover:bg-muted cursor-pointer min-h-[32px]">
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={`mailto:?subject=${encodeURIComponent(`Report: ${reportName || "My Report"}`)}&body=${encodeURIComponent(`Here's the report: ${shareUrl}`)}`}
+                  className="text-xs font-medium px-2.5 py-1.5 rounded-md border border-border text-slate-600 hover:bg-muted cursor-pointer min-h-[32px] inline-flex items-center"
+                >
+                  Email
+                </a>
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(`${reportName || "My Report"}: ${shareUrl}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium px-2.5 py-1.5 rounded-md border border-border text-slate-600 hover:bg-muted cursor-pointer min-h-[32px] inline-flex items-center"
+                >
+                  WhatsApp
+                </a>
+              </div>
             </div>
           )}
           <p className="text-[11px] text-slate-400 mt-1.5">
