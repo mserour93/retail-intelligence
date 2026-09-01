@@ -4,6 +4,7 @@ import { allowedStoreIds } from "../rbac/users.js";
 import { createReport, getReport, listReports, removeReport, updateReport } from "../reports/store.js";
 import { executeReport } from "../reports/execute.js";
 import { exportReportToExcel, exportReportToPdf } from "../reports/export.js";
+import { createShare } from "../reports/shares.js";
 import { listKpiDefinitions } from "../semantic/kpiDictionary.js";
 import { recordAudit } from "../audit/log.js";
 import type { AppUser } from "../rbac/users.js";
@@ -21,11 +22,14 @@ function auditExport(user: AppUser, reportName: string, format: string) {
 }
 
 export const reportsRouter = Router();
-reportsRouter.use(authMiddleware);
 
+// Public: the certified KPI dictionary is not sensitive, and the public
+// shared-report view (spec §49) needs it to render without signing in.
 reportsRouter.get("/kpi-dictionary", (_req, res) => {
   res.json({ kpis: listKpiDefinitions() });
 });
+
+reportsRouter.use(authMiddleware);
 
 reportsRouter.get("/", (req, res) => {
   res.json({ reports: listReports(req.user!.id) });
@@ -44,6 +48,14 @@ reportsRouter.get("/:id", (req, res) => {
   const def = getReport(req.params.id);
   if (!def) return res.status(404).json({ error: "Report not found" });
   res.json({ report: def });
+});
+
+// Create a secure share link for a saved report (spec §49).
+reportsRouter.post("/:id/share", (req, res) => {
+  const def = getReport(req.params.id);
+  if (!def) return res.status(404).json({ error: "Report not found" });
+  const link = createShare(def.id, req.user!.id);
+  res.status(201).json({ token: link.token, path: `/shared/${link.token}` });
 });
 
 reportsRouter.patch("/:id", (req, res) => {

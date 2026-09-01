@@ -43,6 +43,25 @@ export function CommercialCommandCenter() {
         rows={data.price.map((p) => [p.productName, p.categoryName, `SAR ${p.price.toFixed(2)}`, p.isTopSeller ? "Yes" : ""])}
       />
 
+      <SectionHeading>Promotions</SectionHeading>
+      {data.promotions.length === 0 ? (
+        <p className="text-sm text-slate-500 bg-muted/50 border border-dashed border-border rounded-lg p-4 text-center">No promotions in this scope.</p>
+      ) : (
+        <Table
+          columns={["Promotion", "Category", "Window", "Promo Sales", "Est. Uplift", "Discount Cost", "Est. Incremental Margin", "Est. ROI"]}
+          rows={data.promotions.map((p) => [
+            p.name,
+            p.categoryName,
+            `${p.startDate} → ${p.endDate}`,
+            `SAR ${Math.round(p.promoSales).toLocaleString()}`,
+            pct(p.upliftPctEstimate),
+            `SAR ${Math.round(p.discountCost).toLocaleString()}`,
+            `SAR ${Math.round(p.incrementalMarginEstimate).toLocaleString()}`,
+            p.roiEstimate !== null ? pct(p.roiEstimate) : "—",
+          ])}
+        />
+      )}
+
       <SectionHeading>Supplier Performance</SectionHeading>
       <Table
         columns={["Supplier", "Categories", "Net Sales", "Margin %", "Availability"]}

@@ -3,14 +3,14 @@ import { authMiddleware } from "../rbac/authMiddleware.js";
 import { allowedCategoryIds } from "../rbac/users.js";
 import { enforceScope, defaultDateFrom, defaultDateTo } from "../rbac/scope.js";
 import { computeInventoryKpis, computeKpis, computeTopSellerAvailability } from "../semantic/kpiEngine.js";
+import { computePromotionMetrics } from "../engines/promotionAnalytics.js";
 import { categories, products, suppliers } from "../data/masters.js";
 
 export const commercialRouter = Router();
 commercialRouter.use(authMiddleware);
 
-/** Commercial Command Center (spec §19). Category performance, assortment,
- * price, promotion (limited — no real promo events in the mock dataset,
- * so promo metrics are omitted rather than fabricated), supplier, inventory. */
+/** Commercial Command Center (spec §19): category performance, assortment,
+ * price, promotion, supplier, inventory. */
 commercialRouter.get("/", (req, res) => {
   const user = req.user!;
   const dateFrom = (req.query.from as string) ?? defaultDateFrom();
@@ -79,14 +79,17 @@ commercialRouter.get("/", (req, res) => {
     return { categoryId: c.id, categoryName: c.name, ...inv };
   });
 
+  const promotions = computePromotionMetrics().filter((p) => !userCategoryIds || userCategoryIds.includes(p.categoryId));
+
   res.json({
     period: { from: dateFrom, to: dateTo },
     categoryPerformance,
     assortment,
     price,
+    promotions,
     supplierPerformance,
     inventoryByCategory,
-    note: "Promotion ROI/cannibalization metrics are out of scope for this MVP — the mock dataset has no discrete promotion events to attribute uplift to (see docs/ROADMAP.md, Phase 2).",
+    note: "Promotion baseline/uplift/ROI are before/after estimates (avg. daily sales in the 7 days surrounding the promo window), not a controlled experiment. Cannibalization across categories isn't modeled — see docs/ROADMAP.md.",
   });
 });
 

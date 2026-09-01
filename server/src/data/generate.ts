@@ -1,4 +1,4 @@
-import { areas, categories, employeesInStore, products, stores } from "./masters.js";
+import { areas, categories, employeesInStore, products, stores, type Promotion } from "./masters.js";
 
 /**
  * Synthetic data generator. This stands in for the operational + analytical
@@ -76,6 +76,20 @@ function isoDate(daysAgo: number): string {
 export const CALENDAR: string[] = Array.from({ length: DAYS_OF_HISTORY }, (_, i) =>
   isoDate(DAYS_OF_HISTORY - 1 - i),
 ).reverse().reverse(); // oldest -> newest already; kept explicit for readability
+
+// Promotion windows, defined by day-index range (inclusive). Applied as a
+// sales uplift + extra discount on top of the baseline trend for the
+// category, across all stores — a simple, declared-upfront mechanic so the
+// promo ROI computed downstream is honest about what "baseline" means
+// (the same category's average daily sales just outside this window).
+const PROMOTIONS: Array<{ id: string; name: string; categoryId: string; fromDayIndex: number; toDayIndex: number; upliftPct: number; extraDiscountPct: number }> = [
+  { id: "promo-beauty-glow", name: "Beauty Glow Week", categoryId: "cat-beauty", fromDayIndex: 20, toDayIndex: 24, upliftPct: 0.32, extraDiscountPct: 0.12 },
+  { id: "promo-immunity", name: "Immunity Boost Days", categoryId: "cat-vitamins", fromDayIndex: 37, toDayIndex: 40, upliftPct: 0.22, extraDiscountPct: 0.08 },
+];
+
+function activePromotion(categoryId: string, dayIndex: number) {
+  return PROMOTIONS.find((p) => p.categoryId === categoryId && dayIndex >= p.fromDayIndex && dayIndex <= p.toDayIndex);
+}
 
 // base daily sales per store cluster (SAR)
 const CLUSTER_BASE: Record<string, number> = { Flagship: 42000, Standard: 24000, Express: 11000 };
@@ -155,14 +169,19 @@ for (let dayIndex = 0; dayIndex < DAYS_OF_HISTORY; dayIndex++) {
       const share = CATEGORY_SHARE[category.id];
       const marginMult = categoryMarginMultiplier(store.id, category.id, dayIndex);
       const catNoise = 0.92 + rand() * 0.16;
-      const netSales = Math.round(storeTotalSales * share * catNoise * 100) / 100;
+      const promo = activePromotion(category.id, dayIndex);
+      const promoUpliftMult = promo ? 1 + promo.upliftPct : 1;
+      const baseDiscountPct = 0.03 + rand() * 0.04;
+      const discountPct = promo ? baseDiscountPct + promo.extraDiscountPct : baseDiscountPct;
+
+      const netSales = Math.round(storeTotalSales * share * catNoise * promoUpliftMult * 100) / 100;
       const targetSales = Math.round(storeTotalSales * share * 1.05 * 100) / 100; // target = 5% above a flat baseline
       const aov = CATEGORY_AOV[category.id];
       const transactions = Math.max(1, Math.round(netSales / aov));
       const unitsSold = Math.max(1, Math.round(transactions * (1.4 + rand() * 0.8)));
       const grossMarginPct = CATEGORY_MARGIN[category.id] * marginMult;
       const grossProfit = Math.round(netSales * grossMarginPct * 100) / 100;
-      const discountValue = Math.round(netSales * (0.03 + rand() * 0.04) * 100) / 100;
+      const discountValue = Math.round(netSales * discountPct * 100) / 100;
 
       dailyFacts.push({
         date,
@@ -253,6 +272,15 @@ for (const daysAgo of snapshotDays) {
     }
   }
 }
+
+export const promotions: Promotion[] = PROMOTIONS.map((p) => ({
+  id: p.id,
+  name: p.name,
+  categoryId: p.categoryId,
+  startDate: CALENDAR[p.fromDayIndex],
+  endDate: CALENDAR[p.toDayIndex],
+  extraDiscountPct: p.extraDiscountPct,
+}));
 
 export interface EmployeeDailyFact {
   date: string;

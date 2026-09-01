@@ -13,6 +13,7 @@ import { Actions } from "./pages/Actions";
 import { ReportBuilder } from "./pages/ReportBuilder";
 import { DataControlCenter } from "./pages/DataControlCenter";
 import { AuditTrail } from "./pages/AuditTrail";
+import { SharedReport } from "./pages/SharedReport";
 import { More } from "./pages/More";
 import { LoadingState } from "./components/shared";
 import type { ReactNode } from "react";
@@ -28,6 +29,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/shared/:token" element={<SharedReport />} />
       <Route
         element={
           <RequireAuth>

@@ -52,6 +52,15 @@ export interface Supplier {
   categoryIds: string[];
 }
 
+export interface Promotion {
+  id: string;
+  name: string;
+  categoryId: string;
+  startDate: string;
+  endDate: string;
+  extraDiscountPct: number; // additional discount applied on top of baseline, during the promo window
+}
+
 export type EmployeeRole = "Pharmacist" | "Cashier" | "Store Manager";
 export type Shift = "Morning" | "Evening";
 

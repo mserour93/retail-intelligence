@@ -72,6 +72,36 @@ export function ReportBuilder() {
     }
   }
 
+  const [reportName, setReportName] = useState("My Report");
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function shareReport() {
+    setSharing(true);
+    setShareUrl(null);
+    setCopied(false);
+    try {
+      const { report } = await api.post<{ report: { id: string } }>("/reports", { ...buildInput(), name: reportName || "My Report" });
+      const { path } = await api.post<{ path: string }>(`/reports/${report.id}/share`);
+      setShareUrl(`${window.location.origin}${path}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create share link");
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  async function copyShareUrl() {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+    } catch {
+      // clipboard permission denied — the link is still selectable/visible
+    }
+  }
+
   useEffect(() => {
     runReport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -174,11 +204,43 @@ export function ReportBuilder() {
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {result && !loading && <ReportOutput result={result} kpis={kpis} />}
+
+      {result && (
+        <div className="mt-4 bg-surface border border-border rounded-lg p-4">
+          <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Share a secure link</p>
+          <div className="flex flex-wrap gap-2 items-center">
+            <input
+              value={reportName}
+              onChange={(e) => setReportName(e.target.value)}
+              placeholder="Report name"
+              className="text-sm border border-border rounded-md px-3 py-2 min-h-[40px] flex-1 min-w-[160px]"
+            />
+            <button
+              onClick={shareReport}
+              disabled={sharing}
+              className="text-xs font-medium px-3 py-2 rounded-md bg-primary text-primary-on cursor-pointer disabled:opacity-50 min-h-[40px]"
+            >
+              {sharing ? "Creating link…" : "Save & Get Link"}
+            </button>
+          </div>
+          {shareUrl && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <input readOnly value={shareUrl} onFocus={(e) => e.target.select()} className="text-xs font-mono border border-border rounded-md px-2.5 py-1.5 flex-1 min-w-[200px] bg-muted/40" />
+              <button onClick={copyShareUrl} className="text-xs font-medium px-2.5 py-1.5 rounded-md border border-border text-slate-600 hover:bg-muted cursor-pointer min-h-[32px]">
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+          )}
+          <p className="text-[11px] text-slate-400 mt-1.5">
+            Anyone with this link sees a read-only version — no sign-in needed, scoped to what you're allowed to see.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
 
-function ReportOutput({ result, kpis }: { result: ReportResult; kpis: KpiDefinition[] }) {
+export function ReportOutput({ result, kpis }: { result: ReportResult; kpis: KpiDefinition[] }) {
   const kpiLabel = (id: string) => kpis.find((k) => k.id === id)?.nameEn ?? id;
   const kpiUnit = (id: string) => kpis.find((k) => k.id === id)?.unit ?? "count";
   const formatValue = (id: string, v: number) => {

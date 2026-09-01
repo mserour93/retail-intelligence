@@ -168,11 +168,28 @@ export interface CommercialCategoryRow {
   contributionPct: number;
 }
 
+export interface PromotionRow {
+  id: string;
+  name: string;
+  categoryName: string;
+  startDate: string;
+  endDate: string;
+  promoDays: number;
+  promoSales: number;
+  baselineSalesEstimate: number;
+  incrementalSalesEstimate: number;
+  upliftPctEstimate: number;
+  discountCost: number;
+  incrementalMarginEstimate: number;
+  roiEstimate: number | null;
+}
+
 export interface CommercialResponse {
   period: { from: string; to: string };
   categoryPerformance: CommercialCategoryRow[];
   assortment: Array<{ categoryId: string; categoryName: string; skuCount: number; topSellerSkus: number; slowMoverCandidateSkus: number; avgAvailabilityPct: number | null }>;
   price: Array<{ productId: string; productName: string; categoryName: string; price: number; isTopSeller: boolean }>;
+  promotions: PromotionRow[];
   supplierPerformance: Array<{ supplierId: string; supplierName: string; categoryIds: string[]; netSales: number; grossMarginPct: number; availabilityPct: number }>;
   inventoryByCategory: Array<{ categoryId: string; categoryName: string; INVENTORY_VALUE: number; STOCK_DAYS: number; OOS_RATE: number; AVAILABILITY_PCT: number }>;
   note: string;
