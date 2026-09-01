@@ -1,0 +1,263 @@
+import { areas, categories, products, stores } from "./masters.js";
+
+/**
+ * Synthetic data generator. This stands in for the operational + analytical
+ * databases (PostgreSQL / ClickHouse in the target architecture, see
+ * docs/SPEC.md §35) until real POS/ERP/inventory feeds are connected via the
+ * ingestion API stubs in routes/ingestion.ts. Everything downstream (KPI
+ * layer, engines, AI tools) reads through this module's exported facts only,
+ * so swapping this file for a real database-backed repository is the only
+ * change needed to go from mock to live data.
+ *
+ * Deterministic (seeded PRNG) so the demo tells a consistent story:
+ * store-004 (Sahafa Express, Riyadh) is in real decline, store-006
+ * (Corniche, Jeddah) has a critical OOS problem, and Riyadh's OTC category
+ * has a margin/availability issue — matching the spec's worked examples.
+ */
+
+export const DAYS_OF_HISTORY = 60;
+
+function mulberry32(seed: number) {
+  return function () {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const rand = mulberry32(20260901);
+
+export interface DailyStoreCategoryFact {
+  date: string; // ISO yyyy-mm-dd
+  storeId: string;
+  categoryId: string;
+  netSales: number;
+  targetSales: number;
+  transactions: number;
+  unitsSold: number;
+  grossProfit: number;
+  discountValue: number;
+}
+
+export interface InventorySnapshot {
+  storeId: string;
+  categoryId: string;
+  asOfDate: string;
+  inventoryValue: number;
+  stockDays: number;
+  oosRate: number; // 0-1
+  availabilityRate: number; // 0-1, 1 - oosRate on tracked SKUs
+}
+
+export interface ProductAvailabilityPoint {
+  date: string;
+  storeId: string;
+  productId: string;
+  availabilityRate: number;
+  stockUnits: number;
+}
+
+export interface EcommerceDailyFact {
+  date: string;
+  netSales: number;
+  orders: number;
+  sessions: number;
+  conversionRate: number;
+}
+
+function isoDate(daysAgo: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - daysAgo);
+  return d.toISOString().slice(0, 10);
+}
+
+export const CALENDAR: string[] = Array.from({ length: DAYS_OF_HISTORY }, (_, i) =>
+  isoDate(DAYS_OF_HISTORY - 1 - i),
+).reverse().reverse(); // oldest -> newest already; kept explicit for readability
+
+// base daily sales per store cluster (SAR)
+const CLUSTER_BASE: Record<string, number> = { Flagship: 42000, Standard: 24000, Express: 11000 };
+// category share of a store's total sales
+const CATEGORY_SHARE: Record<string, number> = {
+  "cat-otc": 0.28,
+  "cat-rx": 0.24,
+  "cat-vitamins": 0.16,
+  "cat-beauty": 0.14,
+  "cat-personal-care": 0.12,
+  "cat-devices": 0.06,
+};
+const CATEGORY_MARGIN: Record<string, number> = {
+  "cat-otc": 0.24,
+  "cat-rx": 0.18,
+  "cat-vitamins": 0.32,
+  "cat-beauty": 0.38,
+  "cat-personal-care": 0.3,
+  "cat-devices": 0.27,
+};
+const CATEGORY_AOV: Record<string, number> = {
+  "cat-otc": 22,
+  "cat-rx": 45,
+  "cat-vitamins": 70,
+  "cat-beauty": 65,
+  "cat-personal-care": 30,
+  "cat-devices": 150,
+};
+
+// Storylines: multipliers applied on top of the base trend, by store.
+const DECLINING_STORE = "store-004"; // Sahafa Express, Riyadh — real, sustained decline
+const OOS_STORE = "store-006"; // Corniche, Jeddah — critical OOS
+const STRONG_GROWTH_STORE = "store-002"; // Malaz, Riyadh — opportunity story
+const RIYADH_OTC_MARGIN_ISSUE_AREA = "area-riyadh";
+
+function dailyTrendMultiplier(storeId: string, dayIndex: number): number {
+  const progress = dayIndex / (DAYS_OF_HISTORY - 1); // 0 -> 1 old -> new
+  if (storeId === DECLINING_STORE) {
+    // -14% cumulative decline concentrated in the last 3 weeks
+    return progress < 0.6 ? 1.0 : 1.0 - (progress - 0.6) * 0.35;
+  }
+  if (storeId === STRONG_GROWTH_STORE) {
+    return 1.0 + progress * 0.22;
+  }
+  return 1.0 + (rand() - 0.5) * 0.03; // small store-level noise, stable trend
+}
+
+function categoryMarginMultiplier(storeId: string, categoryId: string, dayIndex: number): number {
+  const progress = dayIndex / (DAYS_OF_HISTORY - 1);
+  const store = stores.find((s) => s.id === storeId);
+  if (categoryId === "cat-otc" && store?.areaId === RIYADH_OTC_MARGIN_ISSUE_AREA && progress > 0.5) {
+    return 1 - (progress - 0.5) * 0.14; // margin % erodes ~1.4pp-equivalent in H2
+  }
+  return 1;
+}
+
+export const dailyFacts: DailyStoreCategoryFact[] = [];
+export const inventorySnapshots: InventorySnapshot[] = [];
+export const productAvailability: ProductAvailabilityPoint[] = [];
+export const ecommerceDaily: EcommerceDailyFact[] = [];
+
+for (let dayIndex = 0; dayIndex < DAYS_OF_HISTORY; dayIndex++) {
+  const date = CALENDAR[dayIndex];
+  const weekday = new Date(date).getUTCDay();
+  const weekendBoost = weekday === 4 || weekday === 5 ? 1.12 : 1.0; // Thu/Fri boost (Saudi weekend)
+
+  let ecomSales = 0;
+  let ecomOrders = 0;
+
+  for (const store of stores) {
+    const base = CLUSTER_BASE[store.cluster];
+    const trend = dailyTrendMultiplier(store.id, dayIndex);
+    const noise = 0.9 + rand() * 0.2;
+    const storeTotalSales = base * trend * weekendBoost * noise;
+
+    for (const category of categories) {
+      const share = CATEGORY_SHARE[category.id];
+      const marginMult = categoryMarginMultiplier(store.id, category.id, dayIndex);
+      const catNoise = 0.92 + rand() * 0.16;
+      const netSales = Math.round(storeTotalSales * share * catNoise * 100) / 100;
+      const targetSales = Math.round(storeTotalSales * share * 1.05 * 100) / 100; // target = 5% above a flat baseline
+      const aov = CATEGORY_AOV[category.id];
+      const transactions = Math.max(1, Math.round(netSales / aov));
+      const unitsSold = Math.max(1, Math.round(transactions * (1.4 + rand() * 0.8)));
+      const grossMarginPct = CATEGORY_MARGIN[category.id] * marginMult;
+      const grossProfit = Math.round(netSales * grossMarginPct * 100) / 100;
+      const discountValue = Math.round(netSales * (0.03 + rand() * 0.04) * 100) / 100;
+
+      dailyFacts.push({
+        date,
+        storeId: store.id,
+        categoryId: category.id,
+        netSales,
+        targetSales,
+        transactions,
+        unitsSold,
+        grossProfit,
+        discountValue,
+      });
+
+      ecomSales += netSales * 0.06; // ecommerce modeled as a small % of retail demand
+      ecomOrders += Math.round(transactions * 0.05);
+    }
+  }
+
+  ecommerceDaily.push({
+    date,
+    netSales: Math.round(ecomSales * 100) / 100,
+    orders: ecomOrders,
+    sessions: Math.round(ecomOrders * (8 + rand() * 4)),
+    conversionRate: Math.round((ecomOrders / Math.max(1, ecomOrders * (8 + rand() * 4))) * 10000) / 10000,
+  });
+}
+
+// Inventory snapshots: "30 days ago" and "today" per store x category, to
+// support red flags that need a trend (e.g. "availability fell from 96% to 89%").
+const snapshotDays = [29, 0];
+for (const daysAgo of snapshotDays) {
+  const asOfDate = isoDate(daysAgo);
+  for (const store of stores) {
+    for (const category of categories) {
+      let baseAvailability = 0.95 - rand() * 0.04;
+      let inventoryValue = 60000 + rand() * 40000;
+      let stockDays = 28 + rand() * 14;
+
+      if (store.id === OOS_STORE && daysAgo === 0) {
+        baseAvailability = 0.89; // critical OOS today
+        stockDays = 12;
+      } else if (store.id === OOS_STORE && daysAgo === 29) {
+        baseAvailability = 0.97;
+      }
+      if (
+        category.id === "cat-otc" &&
+        store.areaId === RIYADH_OTC_MARGIN_ISSUE_AREA &&
+        daysAgo === 0
+      ) {
+        baseAvailability = Math.min(baseAvailability, 0.89);
+      }
+
+      inventorySnapshots.push({
+        storeId: store.id,
+        categoryId: category.id,
+        asOfDate,
+        inventoryValue: Math.round(inventoryValue * 100) / 100,
+        stockDays: Math.round(stockDays * 10) / 10,
+        oosRate: Math.round((1 - baseAvailability) * 1000) / 1000,
+        availabilityRate: Math.round(baseAvailability * 1000) / 1000,
+      });
+    }
+  }
+}
+
+// Top-seller product availability, today and 30 days ago, per store.
+const topSellers = products.filter((p) => p.isTopSeller);
+for (const daysAgo of snapshotDays) {
+  const date = isoDate(daysAgo);
+  for (const store of stores) {
+    for (const product of topSellers) {
+      let availability = 0.94 - rand() * 0.05;
+      if (store.id === OOS_STORE && daysAgo === 0) availability = 0.82 - rand() * 0.06;
+      if (
+        product.categoryId === "cat-otc" &&
+        store.areaId === RIYADH_OTC_MARGIN_ISSUE_AREA &&
+        daysAgo === 0
+      ) {
+        availability = Math.min(availability, 0.86);
+      }
+      productAvailability.push({
+        date,
+        storeId: store.id,
+        productId: product.id,
+        availabilityRate: Math.round(availability * 1000) / 1000,
+        stockUnits: Math.round(availability * (40 + rand() * 60)),
+      });
+    }
+  }
+}
+
+export function latestSnapshotDate(): string {
+  return isoDate(0);
+}
+export function priorSnapshotDate(): string {
+  return isoDate(29);
+}
+export { DECLINING_STORE, OOS_STORE, STRONG_GROWTH_STORE };
