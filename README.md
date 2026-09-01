@@ -38,31 +38,44 @@ so the full decision loop is demonstrable without real POS/ERP integrations:
   - Data ingestion API stubs (`POST /api/v1/sales`, `/inventory`, etc.)
     with validation, idempotency keys, and a Data Control Center status
     endpoint
+  - **Staff analytics** (sales/hour, never a raw ranking — role/shift/hours
+    always shown alongside), **PDF/Excel export** with stamping, an
+    **audit trail**, a **Daily Retail Brief** (5-bullet mode included),
+    company-wide **ecommerce and customer KPIs**, a **promotion ROI**
+    engine (real promo windows with before/after baseline estimates), a
+    naive **7-day sales forecast**, and **secure share links** for reports
+    (public, read-only, no login, scoped to the owner's RBAC access)
 - `client/` — Vite/React/TypeScript/Tailwind, mobile-first:
   - Role-aware login (mock SSO — pick a persona)
-  - Morning Control Tower (Area Manager / Store Manager)
-  - Executive Mode (CEO / Retail Director)
-  - Commercial Command Center (category/assortment/price/promo/supplier/inventory)
-  - Area → Store → Category → Product drilldown
-  - Ask AI conversational panel (contextual, suggested prompts)
+  - Morning Control Tower (Area Manager / Store Manager) with a 7-day
+    sales forecast chart
+  - Executive Mode (CEO / Retail Director) with ecommerce/customer KPIs
+  - Commercial Command Center (category/assortment/price/**promotion
+    ROI**/supplier/inventory)
+  - Area → Store → Category → Product → **Staff** drilldown
+  - Ask AI conversational panel (contextual, suggested prompts, 5-bullet brief)
   - Red Flags & Opportunities feed with optional decision tracking
     (Investigate / Discuss / Monitor / Not Relevant — recorded only,
     never executed against any business system)
-  - Basic Report Builder (metrics/dimensions/filters/comparison → table or
-    KPI-card presentation) operating on the same Report Definition object
+  - Report Builder (metrics/dimensions/filters/comparison → table or
+    KPI-card presentation), **PDF/Excel export**, and **save & share** a
+    secure link (with Email/WhatsApp handoff via `mailto:`/`wa.me`)
   - Data Control Center (data freshness/quality panel)
+  - My Activity (audit trail)
 
-## What's explicitly NOT in this MVP
+## What's explicitly NOT in this repo
 
 Real POS/ERP/ecommerce/CRM integrations, PostgreSQL/ClickHouse
-infrastructure, SSO, a hosted LLM key, PDF/Excel/WhatsApp delivery,
-forecasting/anomaly-detection ML, and the full 22-visualization chart
-library are **out of scope for this pass** — see `docs/SPEC.md` for the
-full target spec and `docs/ROADMAP.md` for how the MVP maps to Phases 2-4.
-They need real credentials/infra this environment doesn't have. The
-architecture (semantic layer, Report Definition object, RBAC scope
-filters, AI tool contracts) is built so each can be added without a
-rewrite.
+infrastructure, SSO, and a hosted LLM key are **out of scope** — they need
+real credentials/infra this environment doesn't have. Email/WhatsApp use
+the browser's own `mailto:`/`wa.me` handoff rather than a fabricated
+send API for the same reason. The forecast is a labeled naive linear
+trend, not a machine-learned model. Ecommerce/customer metrics are
+company-wide estimates derived from transaction volume, not a real
+ecommerce platform or CRM feed. See `docs/SPEC.md` for the full target
+spec and `docs/ROADMAP.md` for what's left. The architecture (semantic
+layer, Report Definition object, RBAC scope filters, AI tool contracts)
+is built so real integrations can be added without a rewrite.
 
 ## Running locally
 
