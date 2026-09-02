@@ -1,0 +1,10 @@
+{
+  "name": "retail-intelligence",
+  "private": true,
+  "description": "Root bootstrap script so the whole app can be started with one command (used by StackBlitz's default Node.js boot).",
+  "scripts": {
+    "install:all": "npm --prefix client install && npm --prefix server install",
+    "build": "npm --prefix client run build && npm --prefix server run build",
+    "start": "npm run install:all && npm run build && npm --prefix server run start"
+  }
+}
